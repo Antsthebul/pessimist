@@ -63,7 +63,7 @@ class Manager:
         )
 
         for req_str in [*fixed, *variable]:
-            req = Requirement(req_str)
+            req = Requirement(req_str) 
             if req.marker and not env.match(req.marker):
                 continue
             self.names.add(canonicalize_name(req.name))
@@ -174,11 +174,11 @@ class Manager:
                 )
         return ret
 
-    def solve(self, parallelism: int = 10) -> int:
+    def solve(self, parallelism: int = 10, should_cancel: bool = False) -> int:
 
         queue: Queue[Optional[Plan]] = Queue()
         results: Queue[Result] = Queue()
-        should_cancel: bool = False
+    
 
         def runner() -> None:
             with tempfile.TemporaryDirectory() as d:
@@ -203,7 +203,7 @@ class Manager:
                 env["COVERAGE_FILE"] = f"{d}/.coverage"
 
                 while True:
-                    item: Optional[Plan] = queue.get(block=True)
+                    item: Optional[Plan] = queue.get(block=True) 
                     if item is None:
                         break
 
@@ -233,7 +233,7 @@ class Manager:
 
                         if proc.returncode != 0:
                             raise Exception("Install failed")
-
+                            
                         output += f"$ {self.command}\n"
                         proc = run(
                             self.command,
