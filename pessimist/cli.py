@@ -64,10 +64,6 @@ def main(
         extend=extend.split(","),
         fast=fast,
     )
-    if not variable and not fixed:
-        print('This directory does not contain any dependencies')
-        sys.exit(mgr.solve(parallelism, should_cancel=True))
-
 
     print("Versions")
     print("========")

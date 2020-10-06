@@ -17,8 +17,20 @@ from honesty.cache import Cache
 from honesty.releases import Package, parse_index
 from honesty.version import Version
 
+
+
+test_py='''
+import unittest
+
+class Test(unittest.TestCase):
+    def test_main(self):
+        pass
+'''
+
 LOG = logging.getLogger(__name__)
 
+class NoInstall(Exception):
+    pass
 
 class DepError(Exception):
     pass
@@ -51,7 +63,7 @@ class Manager:
         fast: bool,
     ) -> None:
         self.path = path
-        self.command = command
+        self.command = command 
         self.extend = extend
         self.fast = fast
 
@@ -174,11 +186,23 @@ class Manager:
                 )
         return ret
 
-    def solve(self, parallelism: int = 10, should_cancel: bool = False) -> int:
-
+    def solve(self, parallelism: int = 10) -> int:
         queue: Queue[Optional[Plan]] = Queue()
         results: Queue[Result] = Queue()
-    
+        should_cancel = False
+        m=['makefile', 'Makefile']
+        testdir = 'test.py'
+        cur_dir=os.listdir(self.path)
+        here = os.getcwd()
+        if not any(x in cur_dir for x in m):
+            os.chdir(self.path)
+            with open('Makefile', 'w') as f:
+                f.write('.PHONY: test\ntest:\n\tpython test.py')
+            if not testdir in cur_dir:
+                with open(testdir,'w') as f:
+                    f.write(test_py)
+            os.chdir(here)
+            
 
         def runner() -> None:
             with tempfile.TemporaryDirectory() as d:
@@ -221,24 +245,29 @@ class Manager:
 
                         # TODO: escaping is wrong.
                         output += f"$ {' '.join(buf)}"
-                        proc = run(
-                            buf,
-                            env=env,
-                            stdout=PIPE,
-                            stderr=STDOUT,
-                            cwd=self.path,
-                            encoding="utf-8",
-                        )
-                        output += proc.stdout
+                        try:
+                            if not item.versions.items():
+                                raise NoInstall
+                            proc = run(        
+                                buf,
+                                env=env,       
+                                stdout=PIPE,    
+                                stderr=STDOUT,
+                                cwd=self.path,
+                                encoding="utf-8",
+                            )
+                            output += proc.stdout
 
-                        if proc.returncode != 0:
-                            raise Exception("Install failed")
-    
-                        output += f"$ {self.command}\n"
+                            if proc.returncode != 0:
+                                raise Exception("Install failed")
+                        except NoInstall:
+                            pass
+
+                        output += f"$ {self.command}\n" 
                         proc = run(
                             self.command,
-                            shell=True,
-                            env=env,
+                            shell=True,   
+                            env=env,        
                             stdout=PIPE,
                             stderr=STDOUT,
                             cwd=self.path,
@@ -248,13 +277,13 @@ class Manager:
                         if proc.returncode != 0:
                             raise Exception("Test failed")
 
-                    except Exception as e:
+                    except Exception as e: 
                         results.put(Result(item, str(e), output))
                     else:
                         results.put(Result(item, None, output))
                     queue.task_done()
 
-        threads: List[threading.Thread] = []
+        threads: List[threading.Thread] = []       
         if self.fast:
             parallelism = min(parallelism, 2)
         for i in range(parallelism):
@@ -299,7 +328,7 @@ class Manager:
                     should_cancel = True
                     rv = 1
 
-            else:
+            else: 
                 print(f"OK   {result.item.title}")
                 if result.item.name:
                     assert result.item.version is not None
@@ -339,5 +368,8 @@ class Manager:
 
         for t in threads:
             t.join()
-
+        
+        os.remove(self.path / 'Makefile')
+        os.remove(self.path/ 'test.py')
         return rv
+    
