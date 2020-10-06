@@ -91,6 +91,7 @@ ENV/
 env.bak/
 venv.bak/
 pessimist_env/
+linux_env/
 
 # Spyder project settings
 .spyderproject
@@ -107,3 +108,6 @@ pessimist_env/
 
 # Visual Studio Code
 .vscode/
+
+# log files
+my_log.txt
